@@ -6,6 +6,27 @@ logger = cfg.logger
 timezone = pytz.timezone("Europe/Berlin")
 header = {'Accept': "application/binary", 'Content-type': "application/x-ndjson"}
 
+
+def kill_oldadswizzids(url, auth, kill_date):
+
+    data = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {
+                        "last_activity": {
+                            "lt": kill_date
+                        }
+                    }}]
+            }
+        }
+    }
+    data = json.dumps(data)
+    r = requests.post(url=url, auth=auth, headers=header, data=data)
+    respond = json.loads(r.text)
+    if r.status_code != 200: logger.info("! Error while deleting old AdSwizzIDs: " + r.text)
+    else: logger.info("Deleted " + str(respond["deleted"]) + " documents/AdSwizz-IDs.")
+
 def get_cardinality(query, url, auth):
     # Get total unique AdSwizz-IDs
     body = {"size": 0,

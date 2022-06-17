@@ -53,15 +53,22 @@ es_client = Elasticsearch(hosts=es_client_url, http_auth=auth, max_retries=10, r
 
 index_datastream = config[env]["INDEX_DATASTREAM"]
 index_identities = config[env]["INDEX_IDENTITIES"]
-days_to_count = config['PARAMETERS']["days_to_count"]
+
 
 # Defining timeframe for Elastic
 timestamp_end = datetime.datetime.today()
-timestamp_start = timestamp_end - datetime.timedelta(days = 1)
+timestamp_start = timestamp_end - datetime.timedelta(days = int(config['PARAMETERS']["days_to_count"]))
+kill_date = timestamp_end - datetime.timedelta(days = int(config['PARAMETERS']["kill_days"]))
 timeframe_end = datetime.datetime.combine(timestamp_end, datetime.datetime.min.time()).timestamp()
 timeframe_start = datetime.datetime.combine(timestamp_start, datetime.datetime.min.time()).timestamp()
+kill_date_ts = datetime.datetime.combine(kill_date, datetime.datetime.min.time()).timestamp()
+
 tf_start_elastic = datetime.datetime.fromtimestamp(timeframe_start, timezone).isoformat()
 tf_end_elastic = datetime.datetime.fromtimestamp(timeframe_end, timezone).isoformat()
+kill_date = datetime.datetime.fromtimestamp(kill_date_ts, timezone).isoformat()
+
+logger.info("Now deleting all AdSwizz-IDs which are older than " + str(config['PARAMETERS']["kill_days"]) + " days.")
+data_handler.kill_oldadswizzids(es_client_url + "/" + index_identities + "/_delete_by_query", auth, kill_date)
 
 logger.info("Pseudonym identities will be counted for timeframe: "+ str(tf_start_elastic) + " - " + str(tf_end_elastic) + ".")
 
@@ -72,7 +79,8 @@ query = {"bool": {"must": [{"range": {"createdon": {"lt": tf_end_elastic, "gte":
 # increased by 2.
 total_adswizz_ids = data_handler.get_cardinality(query, es_client_url + "/" + index_datastream + "/_search", auth)
 partitions = round(total_adswizz_ids / 10000) + 2
-logger.info("Total unique AdSwizz-IDs found: " + str(total_adswizz_ids) + ". Aggregations will be now pulled in " + str(partitions) + " partitions.")
+logger.info("Approximately " + str(total_adswizz_ids) + " total unique AdSwizz-IDs found. Aggregations will be now "
+                                                        "pulled in " + str(partitions) + " partitions.")
 
 # Pulling data from Elastic
 data = data_handler.get_aggregation_data(query, partitions, es_client, index_datastream)
