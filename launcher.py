@@ -78,7 +78,7 @@ query = {"bool": {"must": [{"range": {"createdon": {"lt": tf_end_elastic, "gte":
 # Count unique Adswizz-IDs (be aware: Low precision of Elastic) to define number of partitions, which will be
 # increased by 2.
 total_adswizz_ids = data_handler.get_cardinality(query, es_client_url + "/" + index_datastream + "/_search", auth)
-partitions = round(total_adswizz_ids / 10000) + 2
+partitions = round(total_adswizz_ids / 5000) + round(total_adswizz_ids / 50000)
 logger.info("Approximately " + str(total_adswizz_ids) + " total unique AdSwizz-IDs found. Aggregations will be now "
                                                         "pulled in " + str(partitions) + " partitions.")
 

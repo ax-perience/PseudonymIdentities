@@ -62,7 +62,7 @@ def get_aggregation_data(query, partitions, es_client, index):
                                 "partition": partition,
                                 "num_partitions": partitions
                             },
-                            "size": 10000
+                            "size": 6000
                         },
                         "aggs": {
                             "partnerkeys": {
@@ -74,7 +74,8 @@ def get_aggregation_data(query, partitions, es_client, index):
                                 "aggs": {
                                     "last_activity": {
                                         "max": {
-                                            "field": "payload.occurredon"
+                                            "field": "payload.occurredon",
+                                            "format": "YYYY-MM-dd'T'HH:mm:ssZZZZZ"
                                         }
                                     },
                                     "cmp-userids": {
@@ -108,6 +109,7 @@ def get_aggregation_data(query, partitions, es_client, index):
 
         result = es_client.search(index=index, body=body)
 
+
         for adswizzid_id in result["aggregations"]["adswizz_ids"]["buckets"]:
 
             adswizz_id = adswizzid_id["key"].lower()
@@ -123,9 +125,7 @@ def get_aggregation_data(query, partitions, es_client, index):
                 document = {}
                 partnerkey = pkey["key"]
 
-                last_activity = float(pkey["last_activity"]["value_as_string"])
-                last_activity_utc = datetime.datetime.fromtimestamp(last_activity)
-                last_activity_de = last_activity_utc.astimezone(timezone)
+                last_activity = pkey["last_activity"]["value_as_string"]
 
                 total_cmp_userids = len(pkey["cmp-userids"]["buckets"])
 
@@ -133,14 +133,17 @@ def get_aggregation_data(query, partitions, es_client, index):
 
                 if "uuid" in latest_data: document["uuid"] = latest_data["uuid"]
 
-                if "tc_string" in latest_data["payload"]: document["tc_string"] = latest_data["payload"]["tc_string"]
+                if "tc_string" in latest_data["payload"]:
+                    document["tc_string"] = latest_data["payload"]["tc_string"]
+                    document["tc_string_exists"] = True
+                else: document["tc_string_exists"] = False
 
                 if len(latest_data["identifiers_flat"]["cmp-userid"]) > 0: document["cmp_userid"] = \
                 latest_data["identifiers_flat"]["cmp-userid"][0]
 
                 document["adswizz_id"] = adswizz_id
                 document["partnerkey"] = partnerkey
-                document["last_activity"] = last_activity_de.isoformat()
+                document["last_activity"] = last_activity
                 document["total_cmp_userids"] = total_cmp_userids
 
                 if total_cmp_userids == 1:
